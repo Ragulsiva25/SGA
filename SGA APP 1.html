@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Background with Movable Image</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: black;
+        }
+        #camera-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #image-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 80%;
+            max-height: 80%;
+            cursor: grab;
+        }
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            user-select: none;
+        }
+        #file-input {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: white;
+            padding: 5px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- File Input -->
+    <input type="file" id="file-input" accept="image/*">
+
+    <!-- Camera Background -->
+    <div id="camera-container">
+        <video id="camera-feed" autoplay playsinline></video>
+    </div>
+
+    <!-- Image Container -->
+    <div id="image-container" hidden>
+        <img id="uploaded-image" draggable="false">
+    </div>
+
+    <script>
+        // Camera Access
+        async function startCamera() {
+            const video = document.getElementById('camera-feed');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+            } catch (error) {
+                alert("Camera access denied or unavailable!");
+            }
+        }
+        startCamera();
+
+        // Handle Image Upload
+        document.getElementById('file-input').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const img = document.getElementById('uploaded-image');
+                img.src = URL.createObjectURL(file);
+                document.getElementById('image-container').hidden = false;
+            }
+        });
+
+        // Drag and Resize Image
+        let imgContainer = document.getElementById('image-container');
+        let img = document.getElementById('uploaded-image');
+        let isDragging = false, startX, startY, initialX, initialY, scale = 1;
+
+        // Dragging
+        imgContainer.addEventListener('mousedown', (e) => startDrag(e));
+        imgContainer.addEventListener('touchstart', (e) => startDrag(e.touches[0]));
+
+        function startDrag(e) {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            initialX = imgContainer.offsetLeft;
+            initialY = imgContainer.offsetTop;
+
+            document.addEventListener('mousemove', moveImage);
+            document.addEventListener('mouseup', stopDrag);
+            document.addEventListener('touchmove', (e) => moveImage(e.touches[0]));
+            document.addEventListener('touchend', stopDrag);
+        }
+
+        function moveImage(e) {
+            if (!isDragging) return;
+            let dx = e.clientX - startX;
+            let dy = e.clientY - startY;
+            imgContainer.style.left = initialX + dx + 'px';
+            imgContainer.style.top = initialY + dy + 'px';
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            document.removeEventListener('mousemove', moveImage);
+            document.removeEventListener('mouseup', stopDrag);
+            document.removeEventListener('touchmove', moveImage);
+            document.removeEventListener('touchend', stopDrag);
+        }
+
+        // Pinch to Zoom (Mobile)
+        let lastDist = 0;
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length == 2) {
+                let touch1 = e.touches[0];
+                let touch2 = e.touches[1];
+
+                let dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+
+                if (lastDist) {
+                    let scaleChange = dist / lastDist;
+                    scale = Math.min(Math.max(scale * scaleChange, 0.5), 3);
+                    imgContainer.style.transform = `scale(${scale}) translate(-50%, -50%)`;
+                }
+                lastDist = dist;
+            }
+        });
+
+        document.addEventListener('touchend', () => { lastDist = 0; });
+    </script>
+
+</body>
+</html>
